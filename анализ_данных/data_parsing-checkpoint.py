@@ -38,25 +38,43 @@ os.makedirs(processed_plots_directory, exist_ok=True)
 
 # Function to parse raw data
 def parse_raw_data(file_path: str) -> pd.DataFrame:
+    # Чтение всех строк файла
     with open(file_path) as f:
         lines = f.readlines()
 
+    # Поиск строки с заголовками столбцов
+    '''
+    filter(lambda l: 'Time Stamp' in l, lines) - фильтрует строки, содержащие 'Time Stamp'
+    next(...) - берет первую найденную строку
+    lines.index(...) - получает индекс этой строки
+    '''
     column_index = lines.index(next(filter(lambda l: 'Time Stamp' in l, lines)))
+    # Извлечение названий колонок
     column_line = lines[column_index].split(',')
+    # Извлечение строк с данными Пропускаем:
+    # Строку с заголовками (column_index)
+    # Строку с единицами измерения (column_index + 1)
     data_lines = [l.split(',') for l in lines[column_index + 2:]]
 
+    # Обработка временных данных
     abs_timestamp_data = []
     timestamp_data_seconds = []
+    # Обработка каждой строки данных
     for l in data_lines:
         abs_timestamp_data.append(pd.Timestamp(l[column_line.index('Time Stamp')]))
+
+        # реализуем обработку времени выполнения программы (HH:MM:SS) в секунды
         timestamp_str = [float(s) for s in l[column_line.index('Prog Time')].split(':')]
         timestamp_seconds = timestamp_str[0] * 3600 + timestamp_str[1] * 60 + timestamp_str[2]
         timestamp_data_seconds.append(timestamp_seconds)
 
     df = pd.DataFrame({
+        # реализуем нормализацию времени
         timestamp_col: abs_timestamp_data,
-        time_col: [(t - timestamp_data_seconds[0]) / 60 for t in timestamp_data_seconds],  # Time in minutes
-        time_col_s: [(t - timestamp_data_seconds[0]) for t in timestamp_data_seconds],  # Time in seconds
+        time_col: [(t - timestamp_data_seconds[0]) / 60 for t in timestamp_data_seconds],  # время в минутах
+        time_col_s: [(t - timestamp_data_seconds[0]) for t in timestamp_data_seconds],  # время в секундах
+
+        # извлекаем основные числовые данные
         voltage_col: [float(l[column_line.index('Voltage')]) for l in data_lines],
         current_col: [float(l[column_line.index('Current')]) for l in data_lines],
         temperature_col: [float(l[column_line.index('Temperature')]) for l in data_lines],
@@ -88,46 +106,65 @@ def generate_and_save_plot(data_df: pd.DataFrame, save_file_path: str, fig_title
     fig.savefig(save_file_path, format='pdf')
     plt.close(fig)
 
-# Function to create pseudo OCV-SOC interpolation function
+#  создает функции интерполяции для связи напряжения
+#  (OCV - Open Circuit Voltage) с состоянием заряда (SOC) используя калибровочные данные C20.
 def get_pOCV_SOC_interp_fn(file_path: str) -> (interp1d, interp1d):
+    # Загрузка данных C20
+    # Пример: Time [min] | Voltage [V] | Current [A] | Capacity [Ah]
+    #         0.0        | 4.20        | -0.15       | 0.000
     df = pd.read_csv(file_path)
 
-    # Process discharge data
+    # обработка данных РАЗРЯДА; Отбираются все строки где ток отрицательный (разряд)
     df_discharge = df[df[current_col] < 0].copy()
+    # Нормализация емкости
     df_discharge[capacity_col] = df_discharge[capacity_col] - df_discharge[capacity_col].iloc[0]
+
+    # Расчет SOC для разряда Формула: SOC = 1 - (|текущая_емкость| / |максимальная_емкость_разряда|)
     df_discharge[soc_col] = 1 - abs(df_discharge[capacity_col] / df_discharge[capacity_col].iloc[-1])
+    # Удаляем возможные выбросы напряжения выше максимального - ?
     max_voltage_discharge = df_discharge[voltage_col].max()
     df_discharge = df_discharge[df_discharge[voltage_col] <= max_voltage_discharge]
+    # Создание функции интерполяции для разряда
     discharge_interp = interp1d(df_discharge[voltage_col], df_discharge[soc_col], bounds_error=False,
                                 fill_value="extrapolate")
 
-    # Process charge data
+    # Фильтрация данных заряда  - отбираются все строки где ток положительный (заряд)
     df_charge = df[df[current_col] > 0].copy()
+    # Нормализация емкости заряда
     df_charge[capacity_col] = df_charge[capacity_col] - df_charge[capacity_col].iloc[0]
+    # Расчет SOC для заряда SOC = |текущая_емкость| / максимальная_емкость_заряда
     df_charge[soc_col] = abs(df_charge[capacity_col]) / df_charge[capacity_col].iloc[-1]
+
+    # Удаляем возможные выбросы напряжения выше максимального - ?
     max_voltage_charge = df_charge[voltage_col].max()
     df_charge = df_charge[df_charge[voltage_col] <= max_voltage_charge]
+
+    # Создание функции интерполяции для заряда
     charge_interp = interp1d(df_charge[voltage_col], df_charge[soc_col], bounds_error=False, fill_value="extrapolate")
 
     return charge_interp, discharge_interp
 
-
 def get_max_capacities(c20_file_path):
+    # Загрузка данных C20
     df_c20 = pd.read_csv(c20_file_path)
 
-    # Find the index where the discharge phase ends and the charge phase begins
+    # Нахождение точки перехода разряд→заряд
+    '''
+    df_c20[current_col] > 0 - создает булев массив где True для положительного тока
+    df_c20[df_c20[current_col] > 0] - фильтрует строки с положительным током
+    .index[0] - берет первый индекс из отфильтрованных строк
+    '''
     charge_start_index = df_c20[df_c20[current_col] > 0].index[0]
 
-    # Split the DataFrame into discharge and charge phases
+    # Разделение данных на две части
     df_discharge = df_c20.iloc[:charge_start_index]
     df_charge = df_c20.iloc[charge_start_index:]
 
-    # Calculate max capacities for discharge and charge phases
+    # Расчет максимальных емкостей как для ЗАРЯДА так и для РАЗРЯДА
     max_discharge_capacity = df_discharge[capacity_col].max() - df_discharge[capacity_col].min()
     max_charge_capacity = df_charge[capacity_col].max() - df_charge[capacity_col].min()
 
     return max_charge_capacity, max_discharge_capacity
-
 
 # почему C20 - ?
 def process_c20_files(T):
@@ -177,15 +214,19 @@ def process_c20_files(T):
         logging.error(f'Error processing C20 files for: {T} - {e}')
         return 0  # Return 0 on error
 
-
+# определяет начальное состояние заряда (SOC) батареи в начале теста.
 def get_initial_soc(df, charge_soc_fn, discharge_soc_fn, current_col, voltage_col):
+    # Получение начального напряжения
     initial_voltage = df[voltage_col].iloc[0]
 
-    # Find the index of the first non-zero current
+    # Поиск первого ненулевого тока
     first_non_zero_index = df[df[current_col] != 0].index[0]
+    # Получение значения тока
     first_non_zero_current = df[current_col].iloc[first_non_zero_index]
 
-    # Determine SOC based on the sign of the first non-zero current
+    # Определение SOC по виду тока;
+    # если батарея разряжается используем функцию разряда
+    # иначе функцию заряда
     if first_non_zero_current < 0:
         return discharge_soc_fn(initial_voltage)
     else:
@@ -220,7 +261,7 @@ def process_file(args):
         os.makedirs(parsed_plots_dir, exist_ok=True)
         os.makedirs(processed_plots_dir, exist_ok=True)
 
-        #чтение данных и сохранение
+        #чтение данных и сохранение обновленных
         raw_file_path = os.path.join(raw_data_directory, T, f'{csv_file_name}.csv')
         df = parse_raw_data(raw_file_path)
         parsed_file_path = os.path.join(parsed_dir, f'{csv_file_name}_parsed.csv')
