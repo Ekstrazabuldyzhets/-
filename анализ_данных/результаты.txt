@@ -1,0 +1,43 @@
+/Users/nierra/PycharmProjects/pythonProject/.venv/bin/python /Users/nierra/PycharmProjects/pythonProject/диплом-2/тест/SoC_Estimation_LSTM.py 
+2.6.0
+False
+cpu
+                  Timestamp  Time [min]  ...  Power [W]  CC_Capacity [Ah]
+0       2018-11-08 09:53:14    0.000000  ...  -0.213993         -0.000000
+1       2018-11-08 09:53:14    0.010033  ...  -0.395751         -0.000016
+2       2018-11-08 09:53:15    0.025017  ...  -0.395735         -0.000039
+3       2018-11-08 09:53:16    0.041700  ...  -0.395719         -0.000066
+4       2018-11-08 09:53:17    0.059983  ...  -0.385026         -0.000094
+...                     ...         ...  ...        ...               ...
+532257  2018-12-18 18:24:55  112.126150  ...   0.000000         -2.118549
+532258  2018-12-18 18:24:56  112.142883  ...   0.000000         -2.118549
+532259  2018-12-18 18:24:57  112.159483  ...   0.000000         -2.118549
+532260  2018-12-18 18:24:58  112.176183  ...   0.000000         -2.118549
+532261  2018-12-18 18:24:59  112.192867  ...   0.000000         -2.118549
+
+[532262 rows x 14 columns]
+                  Timestamp  Time [min]  ...  Power [W]  CC_Capacity [Ah]
+0       2018-11-08 09:53:14    0.000000  ...   0.410519          1.532056
+1       2018-11-08 09:53:14    0.010033  ...   0.387702          1.532035
+2       2018-11-08 09:53:15    0.025017  ...   0.387704          1.532004
+3       2018-11-08 09:53:16    0.041700  ...   0.387707          1.531969
+4       2018-11-08 09:53:17    0.059983  ...   0.389049          1.531932
+...                     ...         ...  ...        ...               ...
+532257  2018-12-18 18:24:55  112.126150  ...   0.437382         -1.262084
+532258  2018-12-18 18:24:56  112.142883  ...   0.437382         -1.262084
+532259  2018-12-18 18:24:57  112.159483  ...   0.437382         -1.262084
+532260  2018-12-18 18:24:58  112.176183  ...   0.437382         -1.262084
+532261  2018-12-18 18:24:59  112.192867  ...   0.437382         -1.262084
+
+[532262 rows x 14 columns]
+Training files: {'562_Mixed5_processed.csv', '555_HPPC_processed.csv', '552_Mixed3_processed.csv', '562_Mixed6_processed.csv', '575_HPPC_processed.csv', '602_Cap_1C_processed.csv', '551_LA92_processed.csv', '611_Cap_1C_processed.csv', '556_Mixed2_processed.csv', '589_Mixed2_processed.csv', '601_Mixed2_processed.csv', '552_Mixed4_processed.csv', '571_Cap_1C_processed.csv', '590_Mixed8_processed.csv', '610_Mixed2_processed.csv', '571_PausCycl_processed.csv', '571_Mixed6_processed.csv', '562_Mixed7_processed.csv', '604_Mixed6_processed.csv', '556_UDDS_processed.csv', '551_Cap_1C_processed.csv', '610_LA92_processed.csv', '551_Mixed1_processed.csv', '601_Mixed1_processed.csv', '590_PausCycl_processed.csv', '610_HWFET_processed.csv', '552_Mixed8_processed.csv', '556_LA92_processed.csv', '567_Mixed1_processed.csv', '596_UDDS_processed.csv', '590_Mixed7_processed.csv', '611_Mixed5_processed.csv', '557_Cap_1C_processed.csv', '589_HWFET_processed.csv', '549_HPPC_processed.csv', '602_Mixed5_processed.csv', '601_US06_processed.csv', '611_PausCycl_processed.csv', '604_PausCycl_processed.csv', '567_US06_processed.csv', '571_Mixed4_processed.csv', '589_LA92_processed.csv', '589_US06_processed.csv', '557_Mixed3_processed.csv', '562_Mixed8_processed.csv', '589_UDDS_processed.csv', '562_PausCycl_processed.csv', '552_Mixed7_processed.csv', '596_Cap_1C_processed.csv', '607_HPPC_processed.csv', '611_Mixed8_processed.csv', '610_Cap_1C_processed.csv', '576_Cap_1C_processed.csv', '596_LA92_processed.csv', '576_UDDS_processed.csv', '576_HWFET_processed.csv', '610_US06_processed.csv', '611_Mixed3_processed.csv', '590_Mixed4_processed.csv', '611_Mixed7_processed.csv', '604_Mixed8_processed.csv', '589_Cap_1C_processed.csv', '551_Mixed2_processed.csv', '556_HWFET_processed.csv', '610_Mixed1_processed.csv', '596_HWFET_processed.csv', '556_US06_processed.csv', '571_Mixed8_processed.csv', '602_Mixed4_processed.csv', '556_Mixed1_processed.csv', '552_Mixed5_processed.csv', '571_Mixed7_processed.csv'}
+
+Validation files: {'611_Mixed4_processed.csv', '552_Mixed6_processed.csv', '593_HPPC_processed.csv', '571_Mixed5_processed.csv', '604_Mixed3_processed.csv', '611_Mixed6_processed.csv', '567_Mixed2_processed.csv', '552_Cap_1C_processed.csv', '590_Mixed6_processed.csv'}
+
+Testing files: {'562_Mixed4_processed.csv', '585_HPPC_processed.csv', '552_PausCycl_processed.csv', '590_Mixed5_processed.csv', '551_US06_processed.csv', '551_UDDS_processed.csv', '610_UDDS_processed.csv', '604_Mixed7_processed.csv', '589_Mixed1_processed.csv'}
+Train features shape: torch.Size([411223, 5])
+Test features shape: torch.Size([65949, 5])
+Train labels shape: torch.Size([411223])
+Test labels shape: torch.Size([65949])
+
+
