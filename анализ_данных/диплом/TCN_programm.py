@@ -77,7 +77,6 @@ def data_spliter(data, percents):
 
     return train_data, val_data, test_data
 
-# подготавливает данные для рекуррентных сетей (LSTM)
 def data_for_nn_transmuter(train_data, val_data, test_data):
     train_dataset = nero.BatteryDatasetLSTM(
         torch.tensor(train_data[features_cols].values, dtype=torch.float32).to(device),

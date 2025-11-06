@@ -77,9 +77,9 @@ def data_spliter(data, percents):
 
     return train_data, val_data, test_data
 
-# подготавливает данные для рекуррентных сетей (LSTM)
-def data_for_nn_transmuter(train_data, val_data, test_data):
-    train_dataset = nero.BatteryDatasetLSTM(
+# подготавливает данные для сверточных нейросетей (CNN)
+def data_for_cnn_transmuter(train_data, val_data, test_data):
+    train_dataset = nero.BatteryDatasetCNN(
         torch.tensor(train_data[features_cols].values, dtype=torch.float32).to(device),
         torch.tensor(train_data[target_variable].values, dtype=torch.float32).to(device),
         SEQUENCE_LENGTH,
@@ -87,7 +87,7 @@ def data_for_nn_transmuter(train_data, val_data, test_data):
         train_data['Time [s]'].values
     )
 
-    val_dataset = nero.BatteryDatasetLSTM(
+    val_dataset = nero.BatteryDatasetCNN(
         torch.tensor(val_data[features_cols].values, dtype=torch.float32).to(device),
         torch.tensor(val_data[target_variable].values, dtype=torch.float32).to(device),
         SEQUENCE_LENGTH,
@@ -95,7 +95,7 @@ def data_for_nn_transmuter(train_data, val_data, test_data):
         val_data['Time [s]'].values
     )
 
-    test_dataset = nero.BatteryDatasetLSTM(
+    test_dataset = nero.BatteryDatasetCNN(
         torch.tensor(test_data[features_cols].values, dtype=torch.float32).to(device),
         torch.tensor(test_data[target_variable].values, dtype=torch.float32).to(device),
         SEQUENCE_LENGTH,
@@ -205,16 +205,19 @@ def hyperparameters_selectioner(train_loader, val_loader):
     # 0) функция, которую мы оптимизируем, дающая гиперпараметры, запускающая прогнозирование и расчитывание ошибки
     def objective(trial):
         # 0.1) предлагаемые гиперпараметры (задается нижний и верхнмий диапазон)
-        hidden_size = trial.suggest_int('hidden_size', 10, 100) # количество нейронов на слое
-        num_layers = trial.suggest_int('num_layers', 1, 5) # количество скрытых слоев
-        learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-1, log=True)
+        hidden_size = trial.suggest_categorical('hidden_size', [32, 64, 128, 264]) # количество фильтров (feature maps) в сверточных слоях
+        num_layers = trial.suggest_int('num_layers', 1, 3) # количество сверточных слоев в сети
+        learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-1, log=True) # cкорость обучения - шаг, с которым обновляются веса сети
+        kernel_size = trial.suggest_categorical('kernel_size', [3]) # размер ядра свертки
+        dropout = trial.suggest_float('dropout', 0.1, 0.5) # вероятность отключения нейрона во время обучения
 
         # 0.2) создание модели с предлагаемыми гиперпараметрами
-        model = nero.SoCLSTM(input_size=len(features_cols), hidden_size=hidden_size, num_layers=num_layers).type(torch.float32).to(device)
+        model = nero.SoCCNN(input_size=len(features_cols), hidden_size=hidden_size, num_layers=num_layers,
+                            kernel_size=kernel_size, dropout=dropout).type(torch.float32).to(device)
 
-        # 0.3) определите свою функцию потерь и оптимизатор с помощью предлагаемых гиперпараметров
+        # 0.3) определяет свою функцию потерь и оптимизатор с помощью предлагаемых гиперпараметров
         criterion = nn.MSELoss()
-        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
 
         # 0.4) обучаем модель [модель, метрика, оптимизатор, обучающие данные, оценивающие даты, эпохи, device]
         history = train_education(model, criterion, optimizer, train_loader, val_loader, EPOCHS, device)
@@ -225,13 +228,13 @@ def hyperparameters_selectioner(train_loader, val_loader):
 
     # 1) запускаем оптуну для подбора гиперпараметра, минимизируем ошибку
     study = optuna.create_study(direction='minimize')
-    study.optimize(objective, n_trials=10)
+    study.optimize(objective, n_trials=15)
 
     # 2) извлекаем лучшую версию
     best_trial = study.best_trial
     print(f"Best trial: {best_trial}")
     best_hyperparams = study.best_trial.params
-    print('Best hyperparameters:', best_hyperparams)
+    print('Best CNN hyperparameters:', best_hyperparams)
 
     # 3) Визуализация процесса оптимизации
     # Построение истории оптимизации
@@ -248,14 +251,17 @@ def finale_model_trainer(best_hyperparams, train_loader, val_loader, model_path)
     hidden_size = best_hyperparams['hidden_size']
     num_layers = best_hyperparams['num_layers']
     learning_rate = best_hyperparams['learning_rate']
+    kernel_size = best_hyperparams.get('kernel_size', 3)
+    dropout = best_hyperparams.get('dropout', 0.2)
     epochs = 20
 
     # 2) создание модели с предлагаемыми гиперпараметрами
-    model = nero.SoCLSTM(input_size=len(features_cols), hidden_size=hidden_size, num_layers=num_layers).type(torch.float32).to(device)
+    model = nero.SoCCNN(input_size=len(features_cols), hidden_size=hidden_size, num_layers=num_layers,
+                        kernel_size=kernel_size, dropout=dropout).type(torch.float32).to(device)
 
     # 3) определите свою функцию потерь и оптимизатор с помощью предлагаемых гиперпараметров
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
 
     # 4) обучаем модель [модель, метрика, оптимизатор, обучающие данные, оценивающие даты, эпохи, device]
     history = train_education(model, criterion, optimizer, train_loader, val_loader, epochs, device)
@@ -268,10 +274,12 @@ def finale_model_tester(best_hyperparams, test_loader, model_path):
     # 1) предлагаемые гиперпараметры (задается нижний и верхнмий диапазон)
     hidden_size = best_hyperparams['hidden_size']
     num_layers = best_hyperparams['num_layers']
-    learning_rate = best_hyperparams['learning_rate']
+    kernel_size = best_hyperparams.get('kernel_size', 3)
+    dropout = best_hyperparams.get('dropout', 0.2)
 
     # 1.1) загружаем сохраненную модель
-    loaded_model = nero.SoCLSTM(input_size=len(features_cols), hidden_size=hidden_size, num_layers=num_layers).type(torch.float32).to(device)
+    loaded_model = nero.SoCCNN(input_size=len(features_cols), hidden_size=hidden_size, num_layers=num_layers,
+                               kernel_size=kernel_size, dropout=dropout).type(torch.float32).to(device)
     loaded_model.load_state_dict(torch.load(model_path, map_location=device)['model_state_dict'])
     loaded_model.to(device)
     loaded_model.eval()
@@ -294,23 +302,24 @@ def finale_model_tester(best_hyperparams, test_loader, model_path):
     test_predictions_np = np.array(test_predictions)
     test_labels_np = np.array(test_labels)
 
-    # Calculate MSE and MAE
+    # MSE и MAE
     mse = mean_squared_error(test_labels_np, test_predictions_np)
     mae = mean_absolute_error(test_labels_np, test_predictions_np)
 
-    print(f"Mean Squared Error on Test Set:: {mse}")
-    print(f"Mean Absolute Error on Test Set: {mae}")
+    print(f"CNN Mean Squared Error on Test Set: {mse:.6f}")
+    print(f"CNN Mean Absolute Error on Test Set: {mae:.6f}")
 
 def main(data_directory_dict, model_path, hyperparams_path):
     # 1) загружаем наши данные, а также совершаем предобработку
     directory = data_directory_dict["LG_HG2_processed"]
+    # temperatures_directory = [folder for folder in os.listdir(directory) if 'degC' in folder]
     temperatures_directory = [folder for folder in os.listdir(directory) if 'degC' in folder]
     data = data_loader_and_standarder(temperatures_directory, directory)
     # 1.1) разделяем на тестовую и обучающие выборки
     percents = [0.2, 0.5]
     train_data, val_data, test_data = data_spliter(data, percents)
     # 1.2) преобразуем данные для чтения их моделью, так как требует последовательностей определенной длины.
-    train_loader, val_loader, test_loader = data_for_nn_transmuter(train_data, val_data, test_data)
+    train_loader, val_loader, test_loader = data_for_cnn_transmuter(train_data, val_data, test_data)
 
     if not hyperparams_exist(hyperparams_path):
         # 2) подбираем гиперпараметры для улучшения модели
@@ -330,7 +339,7 @@ def main(data_directory_dict, model_path, hyperparams_path):
 
 if __name__ == "__main__":
     model_path = "/Users/nierra/Desktop/диплом-2/датасет_2/soc_lstm_model.pth"
-    hyperparams_path = "/Users/nierra/Desktop/диплом-2/датасет_2/best_hyperparams.json"
+    cnn_hyperparams_path = "/Users/nierra/Desktop/диплом-2/датасет_2/cnn_best_hyperparams.json"
     main_directory = "/Users/nierra/Desktop/диплом-2/датасет_2/Data"
     data_directory_dict = {"LG_HG2_processed": f"{main_directory}/LG_HG2_processed"}
-    main(data_directory_dict, model_path, hyperparams_path)
+    main(data_directory_dict, model_path, cnn_hyperparams_path)
