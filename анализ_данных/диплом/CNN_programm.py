@@ -77,6 +77,35 @@ def data_spliter(data, percents):
 
     return train_data, val_data, test_data
 
+# функции работающие с сохраненными гиперпараметрами
+def save_hyperparams(hyperparams, file_path):
+    with open(file_path, 'w') as f:
+        json.dump(hyperparams, f, indent=2)
+    print(f"Гиперпараметры сохранены в {file_path}")
+
+# чтение гиперпараметров из файла
+def load_hyperparams(file_path):
+    # чтение файла
+    with open(file_path, 'r') as f:
+        hyperparams = json.load(f)
+    return hyperparams
+
+# проверка на наличие файла и гиперпараметров в нем
+def hyperparams_exist(file_path):
+    # Проверяем существование файла
+    if not os.path.exists(file_path):
+        print(f"📁 Файл {file_path} не найден")
+        return False
+
+    hyperparams = load_hyperparams(file_path)
+    # Проверяем только наличие ключевых полей
+    required = ['hidden_size', 'num_layers', 'learning_rate']
+    return all(key in hyperparams for key in required)
+
+'''
+существенно не меняется от модели к модели ↑
+'''
+
 # подготавливает данные для сверточных нейросетей (CNN)
 def data_for_cnn_transmuter(train_data, val_data, test_data):
     train_dataset = nero.BatteryDatasetCNN(
@@ -109,31 +138,6 @@ def data_for_cnn_transmuter(train_data, val_data, test_data):
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
     return train_loader, val_loader, test_loader
-
-# функции работающие с сохраненными гиперпараметрами
-def save_hyperparams(hyperparams, file_path):
-    with open(file_path, 'w') as f:
-        json.dump(hyperparams, f, indent=2)
-    print(f"Гиперпараметры сохранены в {file_path}")
-
-# чтение гиперпараметров из файла
-def load_hyperparams(file_path):
-    # чтение файла
-    with open(file_path, 'r') as f:
-        hyperparams = json.load(f)
-    return hyperparams
-
-# проверка на наличие файла и гиперпараметров в нем
-def hyperparams_exist(file_path):
-    # Проверяем существование файла
-    if not os.path.exists(file_path):
-        print(f"📁 Файл {file_path} не найден")
-        return False
-
-    hyperparams = load_hyperparams(file_path)
-    # Проверяем только наличие ключевых полей
-    required = ['hidden_size', 'num_layers', 'learning_rate']
-    return all(key in hyperparams for key in required)
 
 # обучение модели
 def train_education(model, criterion, optimizer, train_loader, val_loader, epochs, device, patience=20,
@@ -309,6 +313,9 @@ def finale_model_tester(best_hyperparams, test_loader, model_path):
     print(f"CNN Mean Squared Error on Test Set: {mse:.6f}")
     print(f"CNN Mean Absolute Error on Test Set: {mae:.6f}")
 
+'''
+существенно не меняется от модели к модели ↓
+'''
 def main(data_directory_dict, model_path, hyperparams_path):
     # 1) загружаем наши данные, а также совершаем предобработку
     directory = data_directory_dict["LG_HG2_processed"]
